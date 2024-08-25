@@ -1,0 +1,5 @@
+apache-airflow==2.10.0
+pandas
+requests==2.31.0
+psycopg2-binary
+jsonschema==4.19.0
