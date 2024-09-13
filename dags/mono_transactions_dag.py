@@ -3,15 +3,13 @@ from airflow.models import Variable
 from airflow.operators.python import PythonOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.utils.dates import days_ago, datetime
-from scripts.mono_transactions import get_data_from_api, from_json_to_dataframe, insert_in_postgres
+from scripts.mono_transactions import get_data_from_api, insert_in_postgres, connection_to_db
 from datetime import timedelta  
-import os
 import pendulum 
 
 dotenv_path = '/Users/admin/Desktop/Mono/dags/.env'
 
 xtoken = Variable.get("XToken")
-
 
 default_args = {
     'owner': 'airflow',
@@ -20,10 +18,10 @@ default_args = {
     'retry_delay': timedelta(minutes=1),  
 }
 
-
 def convert_to_unix(ds, **kwargs):
     from_date = pendulum.parse(ds).start_of('day').int_timestamp
     to_date = pendulum.parse(ds).end_of('day').int_timestamp
+    print(ds)
     return from_date, to_date
 
 with DAG(
@@ -31,7 +29,7 @@ with DAG(
     default_args=default_args,
     description='Отримання даних по операціям Монобанку',
     schedule_interval='0 0 * * *',
-    start_date=datetime(2024, 9, 1),
+    start_date=datetime(2024, 8, 29),
     catchup=True,
 ) as dag:
 
@@ -41,6 +39,12 @@ with DAG(
 
     end = DummyOperator(
         task_id='end'
+    )
+
+    convert_dates = PythonOperator(
+        task_id='convert_dates',
+        python_callable=convert_to_unix,
+        provide_context=True
     )
 
     get_data = PythonOperator(
@@ -54,20 +58,16 @@ with DAG(
         }
     )
 
-    convert_dates = PythonOperator(
-        task_id='convert_dates',
-        python_callable=convert_to_unix,
+    connections = PythonOperator(
+        task_id='check_connection',
+        python_callable=connection_to_db,
         provide_context=True
     )
 
-    transform_data = PythonOperator(
-        task_id='my_second_task',
-        python_callable=from_json_to_dataframe
-    )
-
     insert_data = PythonOperator(
-        task_id='my_third_task',
-        python_callable=insert_in_postgres
+        task_id='insert_data',
+        python_callable=insert_in_postgres,
+        provide_context=True
     )
 
-    start >> convert_dates >> get_data >> transform_data >> insert_data >> end
+    start >> convert_dates >> get_data >> connections >> insert_data >> end
