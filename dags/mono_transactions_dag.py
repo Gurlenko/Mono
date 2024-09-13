@@ -28,7 +28,7 @@ with DAG(
     dag_id='Mono_transactions',
     default_args=default_args,
     description='Отримання даних по операціям Монобанку',
-    schedule_interval='0 0 * * *',
+    schedule_interval='59 20 * * *',
     start_date=datetime(2024, 8, 29),
     catchup=True,
 ) as dag:
